@@ -7,6 +7,7 @@
 
 breed [trucks truck]
 breed [cars car]
+
 patches-own [speed-limit]
 
 turtles-own [
@@ -14,7 +15,6 @@ turtles-own [
   top-speed     ; the maximum speed of the car (different for all cars)
   target-lane   ; the desired lane of the car
   patience      ; the driver's current level of patience
-  is-crashed?
 ]
 
 to setup
@@ -31,7 +31,6 @@ to setup
     set top-speed 0.5 + random-float 0.5  ; Carros são rápidos
     set speed 0.5
     set patience random max-patience
-    set is-crashed? false
   ]
 
   ; --- Cria os caminhões ---
@@ -45,7 +44,6 @@ to setup
     set top-speed 0.4 + random-float 0.2 ; Caminhões são mais lentos
     set speed 0.4
     set patience random max-patience
-    set is-crashed? false
   ]
 
   set selected-car one-of turtles
@@ -119,22 +117,21 @@ to go
 end
 
 to move-forward ; turtle procedure
-  if is-crashed? [ stop ]
   set heading 90
-  speed-up-car ; we tentatively speed up, but might have to slow down
+  speed-up-car
+
   let blocking-cars other turtles in-cone (1 + speed) 180 with [ y-distance <= 1 ]
   let blocking-car min-one-of blocking-cars [ distance myself ]
+  
   if blocking-car != nobody [
-    ; --- Lógica para reagir ao acidente ---
-    if [is-crashed?] of blocking-car [
-      ; Se o carro da frente está batido, perca a paciência e tente mudar de pista AGORA!
-      set patience 0
-    ]
-
-    ; Mantém a lógica original de acompanhar a velocidade
     set speed [ speed ] of blocking-car
     slow-down-car
+    
+    if [breed] of blocking-car = trucks [
+      slow-down-car
+    ]
   ]
+  
   forward speed
 end
 
@@ -166,15 +163,13 @@ to choose-new-lane ; turtle procedure
 end
 
 to move-to-target-lane ; turtle procedure
-  if is-crashed? [ stop ]
   set heading ifelse-value target-lane < ycor [ 180 ] [ 0 ]
   let blocking-cars other turtles in-cone (1 + abs (ycor - target-lane)) 180 with [ x-distance <= 1 ]
   let blocking-car min-one-of blocking-cars [ distance myself ]
   ifelse blocking-car = nobody [
     forward 0.2
-    set ycor precision ycor 1 ; to avoid floating point errors
+    set ycor precision ycor 1
   ] [
-    ; slow down if the car blocking us is behind, otherwise speed up
     ifelse towards blocking-car <= 180 [ slow-down-car ] [ speed-up-car ]
   ]
 end
@@ -213,17 +208,6 @@ to-report number-of-lanes
   report 2
 end
 
-to create-accident
-  if any? turtles [
-    ask one-of turtles [
-      set is-crashed? true
-      set speed 0
-      set color gray
-      set label "X"
-    ]
-  ]
-end
-
 ; Copyright 1998 Uri Wilensky.
 ; See Info tab for full copyright and license.]]></code>
   <widgets>
@@ -231,7 +215,7 @@ end
     <button x="10" y="10" height="35" disableUntilTicks="false" forever="false" kind="Observer" width="65">setup</button>
     <button x="150" y="10" height="35" disableUntilTicks="true" forever="true" kind="Observer" width="65" display="go">go</button>
     <button x="80" y="10" height="35" disableUntilTicks="true" forever="false" kind="Observer" width="65" display="go once">go</button>
-    <slider x="225" step="1" y="360" max="number-of-lanes * world-width" width="205" display="number-of-cars" height="50" min="1" direction="Horizontal" default="25.0" variable="number-of-cars"></slider>
+    <slider x="225" step="1" y="360" max="number-of-lanes * world-width" width="205" display="number-of-cars" height="50" min="1" direction="Horizontal" default="12.0" variable="number-of-cars"></slider>
     <slider x="225" step="1" y="415" max="50" width="205" display="number-of-trucks" height="50" min="0" direction="Horizontal" default="3.0" variable="number-of-trucks"></slider>
     <slider x="435" step="0.001" y="360" max="0.01" width="205" display="acceleration" height="50" min="0.001" direction="Horizontal" default="0.005" variable="acceleration"></slider>
     <slider x="435" step="0.01" y="415" max="0.1" width="205" display="deceleration" height="50" min="0.01" direction="Horizontal" default="0.02" variable="deceleration"></slider>
@@ -294,7 +278,6 @@ foreach range length lanes [ i ->
     <monitor x="890" precision="2" y="360" height="60" fontSize="11" width="150" display="selected car speed">[ speed ] of selected-car</monitor>
     <monitor x="890" precision="2" y="425" height="60" fontSize="11" width="150" display="mean speed">mean [speed] of turtles</monitor>
     <slider x="225" step="2" y="470" max="42" width="205" display="radar-zone-size" height="50" min="0" direction="Horizontal" default="0.0" variable="radar-zone-size"></slider>
-    <button x="645" y="365" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="205" display="create accident">create-accident</button>
   </widgets>
   <info><![CDATA[## WHAT IS IT?
 
